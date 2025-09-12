@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: staging_reviews
+    columns:
+      - name: review_id
+        tests:
+          - not_null
+          - unique
+
+  - name: fact_reviews
+    columns:
+      - name: sentiment_label
+        tests:
+          - not_null

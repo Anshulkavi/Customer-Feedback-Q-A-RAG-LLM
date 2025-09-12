@@ -1,0 +1,46 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.py[cod]
+*$py.class
+venv/
+env/
+*.env
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# DBT
+dbt_project/target/
+dbt_project/dbt_packages/
+*.log
+
+# VSCode / IDEs
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Streamlit
+.streamlit/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Python packaging
+*.egg-info/
+dist/
+build/
+
+# Hugging Face / model cache
+~/.cache/huggingface/
+*.safetensors
+
+# Logs
+*.log
+
+# Google Cloud service account key
+*.json
