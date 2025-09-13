@@ -484,7 +484,7 @@ st.markdown("---")
 st.markdown("""
 <div style="text-align: center; color: #666; padding: 1rem;">
     <p>🚀 Built with Streamlit • Powered by RAG + Gemini AI • 
-    <a href="https://github.com/Anshulkavi/Customer-Feedback-Analysis-and-AI-insights" style="color: #667eea;">View on GitHub</a></p>
+    <a href="https://github.com/Anshulkavi/Customer-Feedback-Q-A-RAG-LLM" style="color: #667eea;">View on GitHub</a></p>
 </div>
 """, unsafe_allow_html=True)
 
