@@ -139,25 +139,72 @@ def load_data_to_database(engine, df):
         logger.error(f"❌ Failed to load data to database: {e}")
         raise
 
+# def run_dbt_models(engine):
+#     """Create the transformed tables directly in PostgreSQL."""
+#     # (This function remains the same as your version)
+#     try:
+#         logger.info("🔄 Creating transformed views and tables...")
+#         with engine.connect() as conn:
+#             conn.execute(text("""
+#                 CREATE VIEW staging_reviews AS
+#                 SELECT
+#                     "Id" AS review_id, "ProductId" AS product_id, "UserId" AS user_id,
+#                     "Score" AS rating, sentiment_score, "Time" AS review_time,
+#                     "Text" AS review_text
+#                 FROM reviews_raw;
+#             """))
+#             conn.execute(text("""
+#                 CREATE TABLE facts_reviews AS
+#                 SELECT
+#                     review_id, product_id, user_id, rating, sentiment_score,
+#                     review_time, review_text,
+#                     CASE
+#                         WHEN sentiment_score > 0.1 THEN 'Positive'
+#                         WHEN sentiment_score < -0.1 THEN 'Negative'
+#                         ELSE 'Neutral'
+#                     END AS sentiment_label
+#                 FROM staging_reviews;
+#             """))
+#             conn.commit()
+#         logger.info("✅ Transformed tables created successfully.")
+#     except Exception as e:
+#         logger.error(f"❌ Failed to create transformed tables: {e}")
+#         raise
+
 def run_dbt_models(engine):
-    """Create the transformed tables directly in PostgreSQL."""
-    # (This function remains the same as your version)
+    """Create the transformed views and tables with proper schema."""
     try:
         logger.info("🔄 Creating transformed views and tables...")
-        with engine.connect() as conn:
+        with engine.begin() as conn:
+            # 1. Staging view
             conn.execute(text("""
                 CREATE VIEW staging_reviews AS
                 SELECT
-                    "Id" AS review_id, "ProductId" AS product_id, "UserId" AS user_id,
-                    "Score" AS rating, sentiment_score, "Time" AS review_time,
+                    "Id" AS review_id,
+                    "ProductId" AS product_id,
+                    "UserId" AS user_id,
+                    "Score" AS rating,
+                    sentiment_score,
+                    to_timestamp("Time") AS review_timestamp,   -- proper timestamp
+                    to_timestamp("Time")::date AS review_date,  -- date only
+                    "Time" AS review_time,                      -- raw/original numeric time
                     "Text" AS review_text
                 FROM reviews_raw;
             """))
+
+            # 2. Facts table
             conn.execute(text("""
                 CREATE TABLE facts_reviews AS
                 SELECT
-                    review_id, product_id, user_id, rating, sentiment_score,
-                    review_time, review_text,
+                    review_id,
+                    product_id,
+                    user_id,
+                    rating,
+                    sentiment_score,
+                    review_time,        -- raw epoch/int
+                    review_timestamp,   -- proper timestamp
+                    review_date,        -- date only
+                    review_text,
                     CASE
                         WHEN sentiment_score > 0.1 THEN 'Positive'
                         WHEN sentiment_score < -0.1 THEN 'Negative'
@@ -165,7 +212,6 @@ def run_dbt_models(engine):
                     END AS sentiment_label
                 FROM staging_reviews;
             """))
-            conn.commit()
         logger.info("✅ Transformed tables created successfully.")
     except Exception as e:
         logger.error(f"❌ Failed to create transformed tables: {e}")
