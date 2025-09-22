@@ -10,14 +10,14 @@
 
 ## 📸 Power BI 
 
-## Product Performance
-![Product Performance](Product_Performance.png)
-
 ## Executive Summary
 ![Executive Summary](Executive_Summary.png)
 
 ## Sentiment Analysis
 ![Sentiment Analysis](Sentiment_Analysis.png)
+
+## Product Performance
+![Product Performance](Product_Performance.png)
 
 ---
 
@@ -312,3 +312,4 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
   [💡 Request Feature](https://github.com/yourusername/customer-feedback-analytics/issues)
 
 </div>
+
