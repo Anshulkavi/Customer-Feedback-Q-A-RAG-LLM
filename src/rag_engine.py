@@ -70,8 +70,12 @@ class RAGEngine:
     def setup_database(self):
         """Setup database connection."""
         try:
+#             self.engine = create_engine(
+#     f"postgresql+pg8000://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",
+#     isolation_level="AUTOCOMMIT"
+# )
             self.engine = create_engine(
-    f"postgresql+pg8000://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",
+    f"postgresql+pg8000://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}?sslmode=require",
     isolation_level="AUTOCOMMIT"
 )
             
