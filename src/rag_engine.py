@@ -8,7 +8,6 @@ import os
 from dotenv import load_dotenv
 import google.generativeai as genai
 import logging
-import streamlit as st
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -31,24 +30,17 @@ class RAGEngine:
     def setup_database(self):
         """Setup database connection."""
         try:
-             
-            DB_USER = os.getenv("DB_USER") or st.secrets.get("DB_USER")
-            DB_PASS = os.getenv("DB_PASS") or st.secrets.get("DB_PASS")
-            DB_NAME = os.getenv("DB_NAME") or st.secrets.get("DB_NAME")
-            DB_HOST = os.getenv("DB_HOST") or st.secrets.get("DB_HOST")
-            DB_PORT = os.getenv("DB_PORT") or st.secrets.get("DB_PORT")
 
-            DATABASE_URL = f"postgresql+psycopg2://{DB_USER}:{DB_PASS}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
-#             url = URL.create(
-#     "postgresql+psycopg2",
-#     username=os.getenv("DB_USER"),
-#     password=os.getenv("DB_PASS"),
-#     host=os.getenv("DB_HOST"),
-#     port=int(os.getenv("DB_PORT")),
-#     database=os.getenv("DB_NAME")
-# )
+            url = URL.create(
+    "postgresql+psycopg2",
+    username=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASS"),
+    host=os.getenv("DB_HOST"),
+    port=int(os.getenv("DB_PORT")),
+    database=os.getenv("DB_NAME")
+)
 
-#             self.engine = create_engine(url, isolation_level="AUTOCOMMIT", connect_args={})
+            self.engine = create_engine(url, isolation_level="AUTOCOMMIT", connect_args={})
             
             # Test connection
             with self.engine.connect() as conn:
