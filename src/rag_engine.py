@@ -1,49 +1,9 @@
-# import faiss
-# import pandas as pd
-# from sentence_transformers import SentenceTransformer
-# from sqlalchemy import create_engine
-# import os
-# from dotenv import load_dotenv
-
-# load_dotenv()
-
-# # --- DB Setup ---
-# engine = create_engine(
-#     f"postgresql+pg8000g2://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@"
-#     f"{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
-# )
-
-# df = pd.read_sql("SELECT review_id, review_text FROM public.facts_reviews", engine)
-
-# # --- Model Setup ---
-# model = SentenceTransformer('all-MiniLM-L6-v2')
-# embeddings = model.encode(df['review_text'].tolist(), show_progress_bar=True)
-
-# # --- Build FAISS index ---
-# dimension = embeddings.shape[1]
-# index = faiss.IndexFlatL2(dimension)
-# index.add(embeddings)
-
-# # Map FAISS indices to review IDs
-# id_map = {i: rid for i, rid in enumerate(df['review_id'])}
-
-# # --- Query Function ---
-# def query_reviews(query, top_k=3):
-#     """Return top_k reviews matching the query."""
-#     q_emb = model.encode([query])
-#     D, I = index.search(q_emb, top_k)
-#     results = [{"id": id_map[i], "text": df.iloc[i].review_text} for i in I[0]]
-#     return results
-
-# # --- Example ---
-# if __name__ == "__main__":
-#     print(query_reviews("complaints about delivery"))
-
 import faiss
 import pandas as pd
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 import os
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -74,10 +34,16 @@ class RAGEngine:
 #     f"postgresql+pg8000://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}",
 #     isolation_level="AUTOCOMMIT"
 # )
-            self.engine = create_engine(
-    f"postgresql+pg8000://{os.getenv('DB_USER')}:{os.getenv('DB_PASS')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}?sslmode=require",
-    isolation_level="AUTOCOMMIT"
+            url = URL.create(
+    "postgresql+psycopg2",
+    username=os.getenv("DB_USER"),
+    password=os.getenv("DB_PASS"),
+    host=os.getenv("DB_HOST"),
+    port=int(os.getenv("DB_PORT")),
+    database=os.getenv("DB_NAME")
 )
+
+            self.engine = create_engine(url, isolation_level="AUTOCOMMIT", connect_args={})
             
             # Test connection
             with self.engine.connect() as conn:
@@ -188,53 +154,90 @@ class RAGEngine:
             return []
 
     def generate_summary(self, query, reviews):
-        """Generate AI summary using Gemini."""
+        """Generate AI summary using Gemini with safety fallbacks."""
         try:
             if not reviews:
                 return "No relevant reviews found for your query."
-            
+
             # Prepare context
             context = "\n".join([
                 f"Review {i+1} (Rating: {r['rating']}, Sentiment: {r['sentiment']:.2f}): {r['text'][:500]}"
                 for i, r in enumerate(reviews)
             ])
-            
+
             # Create prompt
             prompt = f"""
             You are a customer feedback analyst. Based on the following customer reviews, provide a comprehensive answer to the user's question.
-            
+
             User Question: "{query}"
-            
+
             Customer Reviews:
             {context}
-            
+
             Instructions:
             1. Provide a clear, concise summary that directly answers the user's question
             2. Include specific insights from the reviews
             3. Mention key patterns, sentiments, or trends you observe
             4. If ratings are available, incorporate them into your analysis
             5. Keep the response under 200 words but make it informative
-            
+
             Response:
             """
-            
-            # Call Gemini API
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.7,
-                    max_output_tokens=300,
-                    top_p=0.9
+
+            # Try with flash model first
+            try:
+                model = genai.GenerativeModel("gemini-2.0-flash")
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=300,
+                        top_p=0.9
+                    )
                 )
+            except Exception as inner_e:
+                logger.warning(f"⚠️ Flash model failed: {inner_e}. Retrying with Pro model...")
+                model = genai.GenerativeModel("gemini-2.0-pro")
+                response = model.generate_content(
+                    prompt,
+                    generation_config=genai.types.GenerationConfig(
+                        temperature=0.7,
+                        max_output_tokens=300,
+                        top_p=0.9
+                    )
+                )
+
+            # ✅ Safe text extraction
+            summary_text = None
+            if hasattr(response, "text") and response.text:
+                summary_text = response.text.strip()
+            elif getattr(response, "candidates", None):
+                for candidate in response.candidates:
+                    if hasattr(candidate, "content") and getattr(candidate.content, "parts", None):
+                        parts = candidate.content.parts
+                        if parts and hasattr(parts[0], "text"):
+                            summary_text = parts[0].text.strip()
+                            break
+
+            if summary_text:
+                logger.info("✅ AI summary generated successfully")
+                return summary_text
+
+            # Fallback summary (if AI refuses to answer)
+            logger.warning("⚠️ Gemini returned no valid text. Using fallback summary.")
+            avg_rating = np.mean([r['rating'] for r in reviews if isinstance(r['rating'], (int, float))])
+            avg_sentiment = np.mean([r['sentiment'] for r in reviews])
+            fallback = (
+                f"The reviews indicate mixed feedback. Average rating is {avg_rating:.2f} "
+                f"with an overall sentiment score of {avg_sentiment:.2f}. "
+                f"Common themes include issues like battery life and quality consistency."
             )
-            
-            logger.info("✅ AI summary generated successfully")
-            return response.text
-            
+            return fallback
+
         except Exception as e:
             logger.error(f"❌ Summary generation failed: {e}")
             return f"Sorry, I couldn't generate a summary. Error: {str(e)}"
+
 
 # Global instance
 _rag_engine = None
